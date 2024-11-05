@@ -1,34 +1,93 @@
-const express = require("express")
-const router = express.Router()
+const express = require("express") // aqui iniciamos o express
+const router = express.Router() // aqui configuramos a primeira parte da rota
+const cors = require('cors') // aqui estou trazendo o pacote cors que permite consumir essa api no front-end
 
-const app = express() 
-const porta = 3333 
+const conectaBancodeDados = require("./bancoDeDados"); // aqui estou ligando ao arquivo banco de dados
+conectaBancodeDados() // estou chamando a função que conecta o banco de dados
 
-const mulheres = [ // uma constante para guardar a lista de objetos
-    {
-        nome: 'Simara Conceição',
-        imagem: 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fwomenawards.globant.com%2Fsites%2Fdefault%2Ffiles%2F2022-07%2F1563116714583%2520Cropped.jpg&f=1&nofb=1&ipt=6fd23509ab6c8752223ed88cea91e37f48f93bd9c308cba0c5d3febe15c8c876&ipo=images',
-        minibio: 'Desenvolvedora e Instrutora'
-    },
-    {
-        nome: 'Iana Chan',
-        imagem: 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fwomenawards.globant.com%2Fsites%2Fdefault%2Ffiles%2F2022-09%2FIana%2520Chan%2520Perfil.jpeg&f=1&nofb=1&ipt=170415e992cf85e0b3d8f6001bdb87af3f0dba9487835ec58af153b1bb3d38c3&ipo=images',
-        minibio: 'CEO & Fundadora da PrograMaria'
-    },
-    {
-        nome: 'Nina da Hora',
-        imagem: 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fi0.wp.com%2Fportalaltadefinicao.com%2Fwp-content%2Fuploads%2F2022%2F07%2FNina.jpeg%3Fw%3D1200%26quality%3D100%26ssl%3D1&f=1&nofb=1&ipt=d6ecc29bf66841ba394dd870576d583c2006157edf4092e1941c2bfa9081124b&ipo=images',
-        minibio: 'Hacker antirracista'
-    },
+const Mulher = require('./mulherModel') //importa infos do modelMulher que será usado para salvar os objetos no Banco de Dados
 
-]
-function mostraMulheres(request, response) {
-    response.json(mulheres)
+const app = express() // aqui iniciamos o app
+app.use(express.json()) // aqui dizemos que as requisições também estarão no formato jason
+app.use(cors())
+
+const porta = 3333 // aqui criamos a porta
+
+
+// GET
+async function mostraMulheres(request, response) {
+    try {
+        const mulheresVindasDoBancoDeDados = await Mulher.find()
+        response.json(mulheresVindasDoBancoDeDados)
+    }catch (erro) {
+        console.log(erro)
+    }
 }
 
+// POST
+async function criaMulher(request,response) {
+     const novaMulher = new Mulher ({
+        nome: request.body.nome,
+        imagem: request.body.imagem,
+        minibio: request.body.minibio,
+        citacao: request.body.citacao
+    })
+
+    try {
+        const mulherCriada = await novaMulher.save()
+        response.status(201).json(mulherCriada)
+    } catch (erro) {
+        console.log(erro)
+    }
+}
+
+// PATCH
+async function corrigeMulher(request, response) {
+    try { 
+        const mulherEncontrada = await Mulher.findById(request.params.id)
+
+        if (request.body.nome) {
+            mulherEncontrada.nome = request.body.nome // armazena o nome novo (sobreescreve)
+        }
+    
+        if (request.body.minibio) {
+            mulherEncontrada.minibio = request.body.minibio // armazena a minibio nova
+        }
+    
+        if (request.body.imagem) {
+            mulherEncontrada.imagem = request.body.imagem // armazena a imagem nova
+        }
+
+        if (request.body.citacao) {
+            mulherEncontrada.citacao = request.body.citacao // armazena a citacao nova
+        }
+        
+        const mulherAtualizadaNoBancoDeDados = await mulherEncontrada.save()
+        response.json(mulherAtualizadaNoBancoDeDados) // retorna lista atualizada de mulheres
+    } catch(erro) {
+        console.log(erro)
+    }
+}
+
+// DELETE
+async function deletaMulher(request, response) {
+    try {
+        await Mulher.findByIdAndDelete(request.params.id)
+        response.json({mensagem: 'Mulher deletada com sucesso!'})
+    } catch(erro) {
+        console.log(erro)
+    }
+}
+
+// ROTAS
+app.use(router.get('/mulheres', mostraMulheres)) // configurei rota GET "/mulheres"
+app.use(router.post('/mulheres', criaMulher)) // configurei rota POST "/mulheres"
+app.use(router.patch('/mulheres/:id', corrigeMulher)) // configurei a rota PATCH "/mulheres/:id"
+app.use(router.delete('/mulheres/:id', deletaMulher)) // configurei a rota DELETE "/mulheres/:id"
+
+// PORTA
 function mostraPorta() { 
     console.log('Servidor criado e rodando na porta ', porta)
 }
 
-app.listen(porta, mostraPorta) 
-app.use(router.get('/mulheres', mostraMulheres))
+app.listen(porta, mostraPorta) // servidor ouvindo porta
